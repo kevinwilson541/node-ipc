@@ -218,6 +218,16 @@ function connect(){
                 let message=new Message;
                 message.load(events[i]);
 
+                if (message.type === '__identify') {
+                    client.emit('__identify', {
+                        id: client.config.id,
+
+                        // TODO: This can't be right....
+                        path: client.config.socketRoot + client.config.appspace + client.config.id
+                    });
+                    continue;
+                }
+
                 client.log('detected event', message.type, message.data);
                 client.publish(
                    message.type,
