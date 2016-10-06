@@ -277,7 +277,7 @@ function doHandshake(socket) {
         let
             id = clientDetails.id,
             path = clientDetails.path,
-            clientConfig = Object.assign(this.config, {id: id, path: path});
+            clientConfig = Object.assign({}, this.config, {id: id, path: path});
 
         // Add Client to server.of
         this.of[id] = new Client(clientConfig, this.log, socket);
