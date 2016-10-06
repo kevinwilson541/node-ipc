@@ -73,7 +73,7 @@ function connect(){
         return;
     }
 
-    if (client.socket !== false) {
+    if (client.socket && client.socket.writable) {
         client.log('Connection already set');
         return;
     }
