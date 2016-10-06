@@ -108,6 +108,16 @@ class Defaults{
                     enumerable:true,
                     writable:true,
                     value:false
+                },
+                requiresHandshake   : {
+                    enumerable:true,
+                    writable:true,
+                    value:false
+                },
+                handshakeTimeout    : {
+                    enumerable:true,
+                    writable:true,
+                    value:2000
                 }
             }
         );
