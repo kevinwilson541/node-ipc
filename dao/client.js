@@ -247,12 +247,11 @@ function onConnectionMade(){
 function onHandshake(status) {
     if (status.complete)
         onConnectionMade.call(this);
-    } else
+    else
         this.emit('__hs', {
             id: this.config.id,
             path: this.config.path || this.config.socketRoot + this.config.appspace + this.config.id
         });
-    }
 }
 
 module.exports=Client;
