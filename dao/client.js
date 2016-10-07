@@ -13,7 +13,7 @@ if(process.version[1]>4){
 }
 
 class Client extends Events{
-    constructor(config,log){
+    constructor(config,log,socket){
         super();
         Object.assign(
             this,
@@ -21,7 +21,7 @@ class Client extends Events{
                 Client  : Client,
                 config  : config,
                 queue   : new Queue,
-                socket  : false,
+                socket  : socket||false,
                 connect : connect,
                 emit    : emit,
                 log     : log,
@@ -29,6 +29,9 @@ class Client extends Events{
                 explicitlyDisconnected: false
             }
         );
+
+        if (this.config.requiresHandshake)
+            this.on('__hs', onHandshake.bind(this));
     }
 }
 
@@ -67,6 +70,11 @@ function connect(){
     client.log('requested connection to ', client.id, client.path);
     if(!this.path){
         client.log('\n\n######\nerror: ', client.id ,' client has not specified socket path it wishes to connect to.');
+        return;
+    }
+
+    if (client.socket && client.socket.writable) {
+        client.log('Connection already set');
         return;
     }
 
@@ -136,11 +144,7 @@ function connect(){
 
     client.socket.on(
         'connect',
-        function connectionMade(){
-            client.publish('connect');
-            client.retriesRemaining=client.config.maxRetries;
-            client.log('retrying reset');
-        }
+        () => !this.config.requiresHandshake && onConnectionMade.call(this)
     );
 
     client.socket.on(
@@ -232,6 +236,22 @@ function connect(){
             client.queue.next();
         }
     );
+}
+
+function onConnectionMade(){
+    this.publish('connect');
+    this.retriesRemaining=this.config.maxRetries;
+    this.log('retrying reset');
+}
+
+function onHandshake(status) {
+    if (status.complete)
+        onConnectionMade.call(this);
+    else
+        this.emit('__hs', {
+            id: this.config.id,
+            path: this.config.path || this.config.socketRoot + this.config.appspace + this.config.id
+        });
 }
 
 module.exports=Client;

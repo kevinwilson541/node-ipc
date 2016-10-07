@@ -1,11 +1,13 @@
 'use strict';
 
-const net = require('net'),
-    tls = require('tls'),
-    fs = require('fs'),
-    dgram = require('dgram'),
+const
+    net         = require('net'),
+    tls         = require('tls'),
+    fs          = require('fs'),
+    dgram       = require('dgram'),
     eventParser = require('./eventParser.js'),
-    Message = require('js-message');
+    Message     = require('js-message'),
+    Client      = require('../dao/client');
 
 let Events = require('event-pubsub/es5');
 if(process.version[1]>4){
@@ -27,7 +29,8 @@ class Server extends Events{
                 server          : false,
                 sockets         : [],
                 emit            : emit,
-                broadcast       : broadcast
+                broadcast       : broadcast,
+                of              : {}
             }
         );
 
@@ -243,14 +246,71 @@ function serverCreated(socket) {
         }.bind(this)
     );
 
-    this.publish(
-        'connect',
-        socket
-    );
+    if (this.config.requiresHandshake) {
+        doHandshake.call(this, socket);
+    } else {
+        this.publish(
+            'connect',
+            socket
+        );
+    }
 
     if(this.config.rawBuffer){
         return;
     }
+}
+
+function doHandshake(socket) {
+
+    let t, cb;
+
+    // Callback function
+    cb = (clientDetails, clientSocket) => {
+
+        // Continue only if sockets match
+        if (clientSocket !== socket)
+            return;
+
+        this.off('__hs', cb);
+        clearTimeout(t);
+
+        let
+            id = clientDetails.id,
+            path = clientDetails.path,
+            clientConfig = Object.assign({}, this.config, {id: id, path: path});
+
+        // Add Client to server.of
+        this.of[id] = new Client(clientConfig, this.log, socket);
+        this.of[id].id = id;
+        this.of[id].path = path;
+        this.of[id].port = this.config.port;
+
+        this.of[id].on('disconnect', function() {
+            delete this.of[id];
+        });
+
+        this.emit(socket, '__hs', {
+            complete: true
+        });
+
+        // Publish connect event
+        this.publish('connect', socket);
+    };
+
+    // Listen for identification
+    this.on('__hs', cb);
+
+    // Ask for identification
+    this.emit(socket, '__hs', {
+        complete: false
+    });
+
+    // Handshake timeout
+    // TODO: Only if emit didn't trigger an error, otherwise you get 2 errors (1 emit, 1 handshake timout later)
+    t = setTimeout(() => {
+        this.off('__hs', cb);
+        this.publish('error', 'Child connection did not finish handshake in time');
+    }, this.config.handshakeTimeout);
 }
 
 function startServer() {
